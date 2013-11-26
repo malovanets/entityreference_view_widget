@@ -1,0 +1,214 @@
+<?php
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function entityreference_view_widget_entity_info_alter(&$info) {
+  foreach ($info as $entity_type => $data) {
+    $info[$entity_type]['view modes']['entityreference_view_widget'] = array(
+      'label' => t('Entity Reference View Widget'),
+      'custom settings' => TRUE,
+    );
+  }
+}
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function entityreference_view_widget_views_data_alter(&$data) {
+  foreach (entity_get_info() as $entity_type => $info) {
+    if (isset($info['base table']) && isset($data[$info['base table']]['table'])) {
+      $data[$info['base table']]['entityreference_view_widget'] = array(
+        'title' => $data[$info['base table']]['table']['group'],
+        'group' => t('Entity Reference View Widget Checkbox'),
+        'help' => t('Provide a checkbox to select the row for an entity reference.'),
+        'real field' => $info['entity keys']['id'],
+        'field' => array(
+          'handler' => 'entityreference_view_widget_handler_field_checkbox',
+          'click sortable' => FALSE,
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function entityreference_view_widget_menu() {
+  $items['entityreference_view_widget/%ctools_js/modal/%/%'] = array(
+    'title' => t('Entity reference view widget modal'),
+    'page callback' => 'entityreference_view_widget_modal',
+    'page arguments'   => array(1,3,4),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function entityreference_view_widget_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'entityreference_view_widget') . '/views',
+  );
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function entityreference_view_widget_field_widget_info() {
+  $widgets['entityreference_view_widget'] = array(
+    'label' => t('View'),
+    'description' => t('An advanced, view-based widget.'),
+    'field types' => array('entityreference'),
+    'behaviors' => array(
+      //'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+      'default value' => FIELD_BEHAVIOR_DEFAULT,
+    ),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function entityreference_view_widget_field_widget_settings_form($field, $instance) {
+  // Only fields with unlimited cardinality are supported at the moment.
+  if ($field['cardinality'] != FIELD_CARDINALITY_UNLIMITED) {
+    drupal_set_message(t("The selected widget only supports fields with 'Number of values' set to 'Unlimited'. Otherwise it won't get displayed on the entity form."), 'warning');
+  }
+
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+
+  $target_type = $field['settings']['target_type'];
+  $info = entity_get_info($target_type);
+  $target_base_table = $info['base table'];
+
+  if ($widget['type'] == 'entityreference_view_widget') {
+    // Get a list of all views that contain a "Entityreference View Widget" display.
+    $options = array();
+    $displays = views_get_applicable_views('entityreference view display');
+    foreach ($displays as $data) {
+      list($view, $display_id) = $data;
+      $view_name = !empty($view->human_name) ? $view->human_name : $view->name;
+      $options[$view->name . '|' . $display_id] = check_plain($view_name . ' | ' . $view->display_handler->display->display_title);
+    }
+
+    $element['view'] = array(
+      '#type' => 'select',
+      '#title' => t('View'),
+      '#description' => t('Specify the View to use for selecting items. Only views that have an "Entityreference View Widget" display are shown.'),
+      '#options' => $options,
+      '#default_value' => $settings['view'],
+      '#required' => TRUE,
+    );
+    $element['pass_argument'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Pass selected entity ids to View'),
+      '#description' => t('If enabled, the View will get all selected entity ids as the first argument. Useful for excluding already selected items.'),
+      '#default_value' => $settings['pass_argument'],
+    );
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function entityreference_view_widget_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $entity_type = $instance['entity_type'];
+  $entity = isset($element['#entity']) ? $element['#entity'] : NULL;
+  $handler = entityreference_get_selection_handler($field, $instance, $entity_type, $entity);
+
+  $entity_ids = array();
+  $entity_labels = array();
+
+  drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
+
+  ctools_include('ajax');
+  ctools_include('modal');
+  ctools_modal_add_js();
+  ctools_include('plugins');
+
+  // Build an array of entities ID.
+  foreach ($items as $item) {
+    $entity_ids[] = $item['target_id'];
+  }
+
+  //print_r($form_state);
+  //dsm($form);
+
+  $target_view = explode('|', $instance['widget']['settings']['view']);
+
+  $field_settings_id = str_replace('_', '-', $field['field_name']);
+
+  $settings = array(
+    'url' => 'entityreference_view_widget/nojs/modal/' . $target_view[0] . '/' . $target_view[1],
+    'field_id' => $field_settings_id,
+  );
+
+  $form[$field['field_name'] . '_settings'] = array(
+    '#type' => 'hidden',
+    '#default_value' => json_encode($settings),
+    '#attributes' => array(
+  	  'id' => $field_settings_id . '-settings',
+      'class' => array('entityreference-view-widget-field-settings'),
+    ),
+  );
+
+  // Load those entities and loop through them to extract their labels.
+  if (isset($items[$delta])) {
+    $entities = entity_load($field['settings']['target_type'], $items[$delta]);
+
+    foreach ($entities as $entity_id => $entity_item) {
+      $label = $handler->getLabel($entity_item);
+    }
+
+    $prefix = '<input data-value="' . $items[$delta]['target_id'] . '" id="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '" class="form-checkbox" type="checkbox" checked="checked" />';
+    $suffix = '<label class="option" for="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '">' . $label . '</label>';
+  }
+
+  //build widget form element
+  $widget = $element + array(
+    '#type' => 'hidden',
+    '#element_validate' => array('entityreference_view_widget_validate'),
+    '#prefix' => isset($prefix) ? $prefix : '',
+    '#suffix' => isset($suffix) ? $suffix : '',
+    '#cardinality'  => $field['cardinality'],
+    '#default_value' => isset($items[$delta]) ? $items[$delta]['target_id'] : '',
+  );
+
+  if (!$items || isset($items[$delta]) || isset($form_state['triggering_element'])) {
+    return array('target_id' => $widget);
+  }
+}
+
+function entityreference_view_widget_validate($element, &$form_state) {
+  dsm($element);
+  dsm($form_state);
+}
+
+function entityreference_view_widget_modal($mode, $name, $display) {
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $output['form'] = array(
+    'command' => 'modal_display',
+    'title' => t('Entity reference view widget form'),
+    'output' => entityreference_view_widget_modal_view($name, $display),
+  );
+
+  print ajax_render($output);
+}
+
+function entityreference_view_widget_modal_view($name, $display) {
+  $view = views_get_view($name);
+  return $view->preview();
+}
