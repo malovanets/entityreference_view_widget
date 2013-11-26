@@ -66,7 +66,7 @@ function entityreference_view_widget_field_widget_info() {
     'description' => t('An advanced, view-based widget.'),
     'field types' => array('entityreference'),
     'behaviors' => array(
-      //'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+      'multiple values' => FIELD_BEHAVIOR_CUSTOM,
       'default value' => FIELD_BEHAVIOR_DEFAULT,
     ),
   );
@@ -174,10 +174,13 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
     $prefix = '<input data-value="' . $items[$delta]['target_id'] . '" id="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '" class="form-checkbox" type="checkbox" checked="checked" />';
     $suffix = '<label class="option" for="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '">' . $label . '</label>';
   }
-
+dsm($delta);
   //build widget form element
   $widget = $element + array(
     '#type' => 'hidden',
+    '#theme' => 'table',
+    '#header' => array('qwertyu'),
+    //'#theme_wrappers' => array('fieldset'),
     '#element_validate' => array('entityreference_view_widget_validate'),
     '#prefix' => isset($prefix) ? $prefix : '',
     '#suffix' => isset($suffix) ? $suffix : '',
