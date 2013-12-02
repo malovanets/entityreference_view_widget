@@ -1,28 +1,40 @@
 (function($) {
 Drupal.behaviors.entityreferenceViewWidget = {
   attach: function(context, settings) {
-    var widget_settings = JSON.parse($('#entityreference-view-widget-field-settings').val());
-    
-    console.log(context);
-    console.log(settings);
-    
-    $('table[id^=field-entity-reference-view-test-values] tbody tr').each(function(e,i){
-      //alert(e);
-    });
-    
-    //alert(settings.url);
-    $('.field-widget-entityreference-view-widget .field-add-more-submit:not(.modal-trigger-processed)', context).each(function(i, obj) {             
-      // Create a drupal ajax object
-      $(this).click(function(){ alert('!!!!!!');
-        Drupal.CTools.Modal.clickAjaxLink;        // This is to pop up the modal as soon as the user clicks the element.
+    $('#entityreference-view-widget-modal-submit').click(function(){
+      var field_name = $('#entityreference-view-widget-field-name').val();
+      var field_frontend_name = field_name.replace(/\_/g, '-');
+      var widget_settings = JSON.parse($('#entityreference-view-widget-' + field_frontend_name + '-settings').val());
+      var offset = $('#' + widget_settings.table_id + ' tbody tr').length;
+      var entity_ids = $('input[name="entity_ids[]"]').serialize();
+      var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type;
+      
+      $('#' + widget_settings.table_id + ' input[type=checkbox]:checked').each(function(){
+        query_string += '&entity_ids[]=' + $(this).val();
       });
-      var element_settings = {};
-      element_settings.url = widget_settings.url;        
-      element_settings.event = 'click';
-      element_settings.progress = { type: 'throbber' };
-      var base = widget_settings.url;
-      Drupal.ajax[base] = new Drupal.ajax(base, obj, element_settings);
-      $(obj).addClass('modal-trigger-processed');           // Add a class to flag that this element has already been processed.
+
+      $.ajax({
+        'url': '/?q=entityreference_view_widget/ajax',
+        'type': 'POST',
+        'dataType': 'html',
+        'data': query_string,
+        'success': function(data) {
+          data && $('#' + widget_settings.table_id + ' tbody').html($('tbody', data).html());          
+          $('#' + widget_settings.table_id + ' tbody tr').each(function(){
+            var el = $(this);
+            if (!el.find('.tabledrag-handle').length) {
+              Drupal.tableDrag[widget_settings.table_id].makeDraggable(el.get(0));
+              el.find('td:last').addClass('tabledrag-hide');
+              if ($.cookie('Drupal.tableDrag.showWeight') == 1) {
+                el.find('.tabledrag-handle').hide();
+              }
+              else {
+                el.find('td:last').hide();
+              }
+            }
+          });  
+        }
+      });
     });
   }
 }

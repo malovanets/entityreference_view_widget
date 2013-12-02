@@ -36,10 +36,15 @@ function entityreference_view_widget_views_data_alter(&$data) {
  * Implements hook_menu().
  */
 function entityreference_view_widget_menu() {
-  $items['entityreference_view_widget/%ctools_js/modal/%/%'] = array(
+  $items['entityreference_view_widget/%ctools_js/modal/%/%/%'] = array(
     'title' => t('Entity reference view widget modal'),
     'page callback' => 'entityreference_view_widget_modal',
-    'page arguments'   => array(1,3,4),
+    'page arguments'   => array(1,3,4,5),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  $items['entityreference_view_widget/ajax'] = array(
+    'page callback' => 'entityreference_view_widget_ajax',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
@@ -66,7 +71,6 @@ function entityreference_view_widget_field_widget_info() {
     'description' => t('An advanced, view-based widget.'),
     'field types' => array('entityreference'),
     'behaviors' => array(
-      //'multiple values' => FIELD_BEHAVIOR_CUSTOM,
       'default value' => FIELD_BEHAVIOR_DEFAULT,
     ),
   );
@@ -126,67 +130,76 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   $entity_type = $instance['entity_type'];
   $entity = isset($element['#entity']) ? $element['#entity'] : NULL;
   $handler = entityreference_get_selection_handler($field, $instance, $entity_type, $entity);
-
+dsm($field);
   $entity_ids = array();
   $entity_labels = array();
 
-  drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
-
   ctools_include('ajax');
   ctools_include('modal');
-  ctools_modal_add_js();
   ctools_include('plugins');
+  ctools_modal_add_js();
 
-  // Build an array of entities ID.
-  foreach ($items as $item) {
-    $entity_ids[] = $item['target_id'];
-  }
-
-  //print_r($form_state);
-  //dsm($form);
+  drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
 
   $target_view = explode('|', $instance['widget']['settings']['view']);
 
-  $field_settings_id = str_replace('_', '-', $field['field_name']);
+  $frontend_id = str_replace('_', '-', $field['field_name']);
+  $checkbox_id = 'edit-' . $frontend_id . '-' . $langcode . '-' . $delta . '-target-id';
+
+  if (isset($items[$delta])) {
+    $entities = entity_load($field['settings']['target_type'], $items[$delta]);
+    $label = $handler->getLabel(current($entities));
+  } else {
+    $label = '';
+  }
 
   $settings = array(
-    'url' => 'entityreference_view_widget/nojs/modal/' . $target_view[0] . '/' . $target_view[1],
-    'field_id' => $field_settings_id,
+    'langcode' => $langcode,
+    'table_id' => $frontend_id . '-values',
+    'target_type' => $field['settings']['target_type'],
   );
 
   $form[$field['field_name'] . '_settings'] = array(
     '#type' => 'hidden',
     '#default_value' => json_encode($settings),
+    '#weight' => 100,
     '#attributes' => array(
-  	  'id' => $field_settings_id . '-settings',
-      'class' => array('entityreference-view-widget-field-settings'),
+  	  'id' => 'entityreference-view-widget-' . $frontend_id . '-settings',
     ),
   );
 
-  // Load those entities and loop through them to extract their labels.
-  if (isset($items[$delta])) {
-    $entities = entity_load($field['settings']['target_type'], $items[$delta]);
-
-    foreach ($entities as $entity_id => $entity_item) {
-      $label = $handler->getLabel($entity_item);
-    }
-
-    $prefix = '<input data-value="' . $items[$delta]['target_id'] . '" id="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '" class="form-checkbox" type="checkbox" checked="checked" />';
-    $suffix = '<label class="option" for="entityreference-view-widget-checkbox-' . $langcode . '-' . $delta . '">' . $label . '</label>';
+  if ($items) {
+    $element += array(
+      '#type' => 'checkbox',
+      '#field_suffix' => '<label class="option" for="' . $checkbox_id . '">' . $label . '</label>',
+      '#return_value' => isset($items[$delta]) ? $items[$delta]['target_id'] : '',
+      '#title_display' => 'after',
+      '#element_validate' => array('entityreference_view_widget_validate'),
+      '#attributes' => array(
+        'checked' => 'checked',
+      ),
+    );
   }
 
-  //build widget form element
-  $widget = $element + array(
-    '#type' => 'hidden',
-    '#element_validate' => array('entityreference_view_widget_validate'),
-    '#prefix' => isset($prefix) ? $prefix : '',
-    '#suffix' => isset($suffix) ? $suffix : '',
-    '#cardinality'  => $field['cardinality'],
-    '#default_value' => isset($items[$delta]) ? $items[$delta]['target_id'] : '',
-  );
+  if (!$items || isset($items[$delta])) {
+    return array('target_id' => $element);
+  }
+}
 
-  if (!$items || isset($items[$delta]) || isset($form_state['triggering_element'])) {
-    return array('target_id' => $widget);
+/**
+ * Implements hook_form_alter().
+ */
+function entityreference_view_widget_form_alter(&$form, &$form_state, $form_id) {
+  foreach (entityreference_view_widget_using_fields() as $field_name) {
+    if (isset($form[$field_name])) {
+      $langcode = $form[$field_name]['#language'];
+      $target_view = explode('|', $form_state['field'][$field_name][$langcode]['instance']['widget']['settings']['view']);
+
+      // Replace with a custom "Add items" button.
+      $form[$field_name][$langcode]['add_more'] = array(
+        '#markup' => ctools_modal_text_button(t('Add items'), 'entityreference_view_widget/nojs/modal/' . $target_view[0] . '/' . $target_view[1] . '/' . $field_name, '', 'button'),
+      );
+    }
   }
 }
 
@@ -195,7 +208,7 @@ function entityreference_view_widget_validate($element, &$form_state) {
   dsm($form_state);
 }
 
-function entityreference_view_widget_modal($mode, $name, $display) {
+function entityreference_view_widget_modal($mode, $name, $display, $field_name) {
   ctools_include('modal');
   ctools_include('ajax');
 
@@ -205,10 +218,122 @@ function entityreference_view_widget_modal($mode, $name, $display) {
     'output' => entityreference_view_widget_modal_view($name, $display),
   );
 
+  $output['form']['output'] .= '<input type="button" class="form-submit" id="entityreference-view-widget-modal-submit" value="' . t('Add selected items') . '"/>';
+  $output['form']['output'] .= '<input type="hidden" name="field_name" id="entityreference-view-widget-field-name" value="' . $field_name . '"/>';
+
   print ajax_render($output);
 }
 
 function entityreference_view_widget_modal_view($name, $display) {
   $view = views_get_view($name);
   return $view->preview();
+}
+
+/**
+ * Ajax callback to transform selected entity IDs into field rows.
+ */
+function entityreference_view_widget_ajax() {
+  $post = $_POST;
+  $entity_ids = array_unique($post['entity_ids']);
+  $weights = array();
+
+  for ($i = 0; $i <= count($entity_ids); $i++) {
+    $weights[$i] = $i;
+    if ($i) {
+      $weights[-$i] = -$i;
+    }
+  }
+
+  ksort($weights);
+
+  $items = array(
+  	'#theme' => 'field_multiple_value_form',
+  	'#field_name' => $post['field_name'],
+  	'#after_build' => array('field_form_element_after_build'),
+    '#language' => $post['langcode'],
+    '#title' => 'Entity reference view test',
+    '#cardinality' => -1,
+    '#description' => '',
+    '#tree' => TRUE,
+  );
+
+  foreach ($entity_ids as $delta => $entity_id) {
+    $frontend_id = str_replace('_', '-', $post['field_name'] . '-' . $post['langcode'] . '-' . $delta);
+    $entities = entity_load($post['target_type'], array($entity_id));
+    $label = entity_label($post['target_type'], current($entities));
+
+    $items[$delta] = array(
+      'target_id' => array(
+        '#type' => 'checkbox',
+        '#weight' => $delta,
+        '#delta' => $delta,
+        '#field_suffix' => '<label class="option" for="' . $frontend_id . '">' . $label . '</label>',
+        '#return_value' => $entity_id,
+        '#title_display' => 'after',
+        '#element_validate' => array('entityreference_view_widget_validate'),
+        '#attributes' => array(
+          'checked' => 'checked',
+        ),
+      ),
+      '_weight' => array(
+        '#type' => 'select',
+        '#options' => $weights,
+        '#title' => t('Weight'),
+        '#value' => $delta,
+        '#title_display' => 'invisible',
+        '#name' => $post['field_name'] . '[' . $post['langcode'] . '][' . $delta . '][_weight]',
+      ),
+    );
+  }
+
+  $widget = array(
+  	'#type' => 'container',
+    '#tree' => TRUE,
+    '#access' => TRUE,
+    '#language' => $post['langcode'],
+    '#attributes' => array(
+      'class' => array('field-type-entityreference', 'field-name-field-entity-reference-view-test', 'field-widget-entityreference-view-widget'),
+    ),
+  );
+
+  $widget[$post['langcode']] = $items;
+
+  if (!empty($post['entity_ids'])) {
+    print render($widget);
+  }
+}
+
+/**
+ * Grabs field names from DB and checks if they are using this widget.
+ */
+function entityreference_view_widget_using_fields() {
+  $query = db_select('field_config', 'fc');
+  $query->leftJoin('field_config_instance', 'fci', 'fci.field_id = fc.id');
+
+  $query->fields('fci', array('field_name', 'data'))
+  ->condition('fc.type', 'entityreference', '=')
+  ->condition('fc.active', 1, '=');
+
+  $results = array();
+
+  foreach ($query->execute()->fetchAll() as $result) {
+    $data = unserialize($result->data);
+    if ($data['widget']['type'] == 'entityreference_view_widget') {
+      $results[] = $result->field_name;
+    }
+  }
+
+  return $results;
+}
+
+function entityreference_view_widget_object_to_array($obj) {
+  if(is_object($obj)) $obj = (array)$obj;
+  if(is_array($obj)) {
+    $new = array();
+    foreach($obj as $key => $val) {
+      $new[$key] = entityreference_view_widget_object_to_array($val);
+    }
+  }
+  else $new = $obj;
+  return $new;
 }

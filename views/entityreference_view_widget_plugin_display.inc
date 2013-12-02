@@ -10,7 +10,7 @@ class entityreference_view_widget_plugin_display extends views_plugin_display {
 
     $options['style_plugin']['default'] = 'entityreference_view_widget';
     //$options['style_options']['default']['columns'] = '3';
-    $options['defaults']['default']['style_plugin'] = FALSE;
+    $options['defaults']['default']['style_plugin'] = 'table';
     $options['defaults']['default']['style_options'] = FALSE;
 
     $options['exposed_form']['contains']['type']['default'] = 'entityreference_view_widget';
