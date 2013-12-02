@@ -109,14 +109,14 @@ function entityreference_view_widget_field_widget_settings_form($field, $instanc
       '#title' => t('View'),
       '#description' => t('Specify the View to use for selecting items. Only views that have an "Entityreference View Widget" display are shown.'),
       '#options' => $options,
-      '#default_value' => $settings['view'],
+      '#default_value' => isset($settings['view']) ? $settings['view'] : '',
       '#required' => TRUE,
     );
     $element['pass_argument'] = array(
       '#type' => 'checkbox',
       '#title' => t('Pass selected entity ids to View'),
       '#description' => t('If enabled, the View will get all selected entity ids as the first argument. Useful for excluding already selected items.'),
-      '#default_value' => $settings['pass_argument'],
+      '#default_value' => isset($settings['pass_argument']) ? $settings['pass_argument'] : '',
     );
   }
 
@@ -130,7 +130,7 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   $entity_type = $instance['entity_type'];
   $entity = isset($element['#entity']) ? $element['#entity'] : NULL;
   $handler = entityreference_get_selection_handler($field, $instance, $entity_type, $entity);
-dsm($field);
+
   $entity_ids = array();
   $entity_labels = array();
 
@@ -140,8 +140,6 @@ dsm($field);
   ctools_modal_add_js();
 
   drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
-
-  $target_view = explode('|', $instance['widget']['settings']['view']);
 
   $frontend_id = str_replace('_', '-', $field['field_name']);
   $checkbox_id = 'edit-' . $frontend_id . '-' . $langcode . '-' . $delta . '-target-id';
@@ -173,10 +171,11 @@ dsm($field);
       '#type' => 'checkbox',
       '#field_suffix' => '<label class="option" for="' . $checkbox_id . '">' . $label . '</label>',
       '#return_value' => isset($items[$delta]) ? $items[$delta]['target_id'] : '',
+      '#value' => isset($items[$delta]) ? $items[$delta]['target_id'] : '',
       '#title_display' => 'after',
-      '#element_validate' => array('entityreference_view_widget_validate'),
       '#attributes' => array(
         'checked' => 'checked',
+        'data-delta' => $delta,
       ),
     );
   }
@@ -190,6 +189,8 @@ dsm($field);
  * Implements hook_form_alter().
  */
 function entityreference_view_widget_form_alter(&$form, &$form_state, $form_id) {
+  $form['#validate'][] = 'entityreference_view_widget_validate';
+
   foreach (entityreference_view_widget_using_fields() as $field_name) {
     if (isset($form[$field_name])) {
       $langcode = $form[$field_name]['#language'];
@@ -203,9 +204,12 @@ function entityreference_view_widget_form_alter(&$form, &$form_state, $form_id) 
   }
 }
 
-function entityreference_view_widget_validate($element, &$form_state) {
-  dsm($element);
-  dsm($form_state);
+function entityreference_view_widget_validate(&$form, &$form_state) {
+  foreach (entityreference_view_widget_using_fields() as $field_name) {
+    if (isset($form[$field_name])) {
+      $form_state['values'][$field_name] = $form_state['input'][$field_name];
+    }
+  }
 }
 
 function entityreference_view_widget_modal($mode, $name, $display, $field_name) {
@@ -234,8 +238,14 @@ function entityreference_view_widget_modal_view($name, $display) {
  */
 function entityreference_view_widget_ajax() {
   $post = $_POST;
-  $entity_ids = array_unique($post['entity_ids']);
+  //$entity_ids = array_unique($post['default_entity_ids'] + $post['entity_ids']);
   $weights = array();
+
+  foreach ($post['entity_ids'] as $entity_id) {
+    $post['default_entity_ids'][] = $entity_id;
+  }
+
+  $entity_ids = array_unique($post['default_entity_ids']);
 
   for ($i = 0; $i <= count($entity_ids); $i++) {
     $weights[$i] = $i;
@@ -257,22 +267,27 @@ function entityreference_view_widget_ajax() {
     '#tree' => TRUE,
   );
 
-  foreach ($entity_ids as $delta => $entity_id) {
+  foreach ($entity_ids as $delta => $entity_id) { //$delta = $entity_id;
     $frontend_id = str_replace('_', '-', $post['field_name'] . '-' . $post['langcode'] . '-' . $delta);
     $entities = entity_load($post['target_type'], array($entity_id));
     $label = entity_label($post['target_type'], current($entities));
+    $name = $post['field_name'] . '[' . $post['langcode'] . '][' . $delta . ']';
 
     $items[$delta] = array(
       'target_id' => array(
         '#type' => 'checkbox',
-        '#weight' => $delta,
+        '#weight' => $key,
         '#delta' => $delta,
         '#field_suffix' => '<label class="option" for="' . $frontend_id . '">' . $label . '</label>',
         '#return_value' => $entity_id,
+        '#value' => $entity_id,
         '#title_display' => 'after',
         '#element_validate' => array('entityreference_view_widget_validate'),
+        '#name' => $name . '[target_id]',
         '#attributes' => array(
           'checked' => 'checked',
+          'id' => $frontend_id,
+          'data-delta' => $delta,
         ),
       ),
       '_weight' => array(
@@ -281,7 +296,7 @@ function entityreference_view_widget_ajax() {
         '#title' => t('Weight'),
         '#value' => $delta,
         '#title_display' => 'invisible',
-        '#name' => $post['field_name'] . '[' . $post['langcode'] . '][' . $delta . '][_weight]',
+        '#name' => $name . '[_weight]',
       ),
     );
   }
@@ -324,16 +339,4 @@ function entityreference_view_widget_using_fields() {
   }
 
   return $results;
-}
-
-function entityreference_view_widget_object_to_array($obj) {
-  if(is_object($obj)) $obj = (array)$obj;
-  if(is_array($obj)) {
-    $new = array();
-    foreach($obj as $key => $val) {
-      $new[$key] = entityreference_view_widget_object_to_array($val);
-    }
-  }
-  else $new = $obj;
-  return $new;
 }

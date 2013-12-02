@@ -10,7 +10,7 @@ Drupal.behaviors.entityreferenceViewWidget = {
       var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type;
       
       $('#' + widget_settings.table_id + ' input[type=checkbox]:checked').each(function(){
-        query_string += '&entity_ids[]=' + $(this).val();
+        query_string += '&default_entity_ids[' + $(this).data('delta') + ']=' + $(this).val();
       });
 
       $.ajax({
