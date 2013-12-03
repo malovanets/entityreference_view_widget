@@ -137,9 +137,6 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   ctools_include('ajax');
   ctools_include('modal');
   ctools_include('plugins');
-  ctools_modal_add_js();
-
-  drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
 
   $frontend_id = str_replace('_', '-', $field['field_name']);
   $checkbox_id = 'edit-' . $frontend_id . '-' . $langcode . '-' . $delta . '-target-id';
@@ -189,9 +186,14 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
  * Implements hook_form_alter().
  */
 function entityreference_view_widget_form_alter(&$form, &$form_state, $form_id) {
-  $form['#validate'][] = 'entityreference_view_widget_validate';
+  $fields = entityreference_view_widget_using_fields();
 
-  foreach (entityreference_view_widget_using_fields() as $field_name) {
+  if ($fields) {
+    $form['#validate'][] = 'entityreference_view_widget_validate';
+    $form['#after_build'][] = 'entityreference_view_widget_add_js';
+  }
+
+  foreach ($fields as $field_name) {
     if (isset($form[$field_name])) {
       $langcode = $form[$field_name]['#language'];
       $target_view = explode('|', $form_state['field'][$field_name][$langcode]['instance']['widget']['settings']['view']);
@@ -204,6 +206,19 @@ function entityreference_view_widget_form_alter(&$form, &$form_state, $form_id) 
   }
 }
 
+function entityreference_view_widget_add_js($form, &$form_state) {
+  ctools_include('ajax');
+  ctools_include('modal');
+  ctools_include('plugins');
+  ctools_modal_add_js();
+  drupal_add_js(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.js');
+
+  return $form;
+}
+
+/**
+ * Pushes input values to form state.
+ */
 function entityreference_view_widget_validate(&$form, &$form_state) {
   foreach (entityreference_view_widget_using_fields() as $field_name) {
     if (isset($form[$field_name])) {
@@ -238,7 +253,6 @@ function entityreference_view_widget_modal_view($name, $display) {
  */
 function entityreference_view_widget_ajax() {
   $post = $_POST;
-  //$entity_ids = array_unique($post['default_entity_ids'] + $post['entity_ids']);
   $weights = array();
 
   foreach ($post['entity_ids'] as $entity_id) {
