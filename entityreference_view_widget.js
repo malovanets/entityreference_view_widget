@@ -1,7 +1,8 @@
 (function($) {
 Drupal.behaviors.entityreferenceViewWidget = {
   attach: function(context, settings) {
-    $('#entityreference-view-widget-modal-submit').click(function(){
+    $('#entityreference-view-widget-modal-submit .button').click(function(){
+      var button = $(this);
       var field_name = $('#entityreference-view-widget-field-name').val();
       var field_frontend_name = field_name.replace(/\_/g, '-');
       var widget_settings = JSON.parse($('#entityreference-view-widget-' + field_frontend_name + '-settings').val());
@@ -32,7 +33,8 @@ Drupal.behaviors.entityreferenceViewWidget = {
                 el.find('td:last').hide();
               }
             }
-          });  
+          });
+          button.hasClass('modal-close') && Drupal.CTools.Modal.dismiss();
         }
       });
     });
