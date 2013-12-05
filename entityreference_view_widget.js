@@ -20,7 +20,7 @@ Drupal.behaviors.entityreferenceViewWidget = {
         'dataType': 'html',
         'data': query_string,
         'success': function(data) {
-          data && $('#' + widget_settings.table_id + ' tbody').html($('tbody', data).html());          
+          data && $('#' + widget_settings.table_id + ' tbody').html(data);          
           $('#' + widget_settings.table_id + ' tbody tr').each(function(){
             var el = $(this);
             if (!el.find('.tabledrag-handle').length) {
