@@ -150,7 +150,6 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   $checkbox_id = 'edit-' . $frontend_id . '-' . $langcode . '-' . $delta . '-target-id';
   $target_view = explode('|', $instance['widget']['settings']['view']);
 
-  $form['#validate'][] = 'entityreference_view_widget_validate';
   $form['#after_build'][] = 'entityreference_view_widget_add_resources';
 
   $settings = array(
@@ -170,11 +169,14 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
 
   $element['add_more'] = array(
     '#markup' => ctools_modal_text_button(t('Add items'), 'entityreference_view_widget/nojs/modal/' . $target_view[0] . '/' . $target_view[1] . '/' . $field['field_name'], '', 'button field-add-more-submit'),
+    '#element_validate' => array('entityreference_view_widget_validate'),
+    '#name' => $field['field_name'],
     '#attached' => array(
       'css' => array(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.css'),
     ),
   );
   $element['#theme'] = 'entityreference_view_widget_widget';
+  $element['#field_name'] = $field['field_name'];
 
   foreach ($items as $delta => $item) {
     $element[$delta] = entityreference_view_widget_row($delta, $field['field_name'], $field['settings']['target_type'], $langcode, $item['target_id'], count($items));
@@ -199,11 +201,11 @@ function entityreference_view_widget_add_resources($form, &$form_state) {
 /**
  * Pushes input values to form state.
  */
-function entityreference_view_widget_validate(&$form, &$form_state) {
-  foreach (entityreference_view_widget_using_fields() as $field_name) {
-    if (isset($form_state['input'][$field_name])) {
-      $form_state['values'][$field_name] = $form_state['input'][$field_name];
-    }
+function entityreference_view_widget_validate($element, &$form_state, $form) {
+  $field_name = $element['#name'];
+
+  if (isset($form_state['input'][$field_name])) {
+    $form_state['values'][$field_name] = $form_state['input'][$field_name];
   }
 }
 
@@ -288,7 +290,7 @@ function entityreference_view_widget_ajax() {
  * Returns a render array for a single field value.
  */
 function entityreference_view_widget_row($delta, $field_name, $target_type, $langcode, $entity_id, $max_delta) {
-  $frontend_id = str_replace('_', '-', $field_name . '-' . $langcode . '-' . $delta);
+  $frontend_id = 'edit-' . str_replace('_', '-', $field_name) . '-' . $langcode . '-' . $delta;
   $entities = entity_load($target_type, array($entity_id));
   $label = entity_label($target_type, current($entities));
   $name = $field_name . '[' . $langcode . '][' . $delta . ']';
@@ -301,7 +303,6 @@ function entityreference_view_widget_row($delta, $field_name, $target_type, $lan
       '#return_value' => $entity_id,
       '#value' => $entity_id,
       '#title_display' => 'after',
-      '#element_validate' => array('entityreference_view_widget_validate'),
       '#name' => $name . '[target_id]',
       '#attributes' => array(
         'checked' => 'checked',
@@ -316,6 +317,10 @@ function entityreference_view_widget_row($delta, $field_name, $target_type, $lan
       '#value' => $delta,
       '#title_display' => 'invisible',
       '#name' => $name . '[_weight]',
+      '#attributes' => array(
+        'id' => $frontend_id . '-weight',
+        'class' => array($field_name . '-delta-order'),
+      ),
     ),
   );
 
@@ -428,27 +433,4 @@ function theme_entityreference_view_widget_rows($variables) {
   }
 
   return implode('', $output);
-}
-
-/**
- * Grabs field names from DB and checks if they are using this widget.
- */
-function entityreference_view_widget_using_fields() {
-  $query = db_select('field_config', 'fc');
-  $query->leftJoin('field_config_instance', 'fci', 'fci.field_id = fc.id');
-
-  $query->fields('fci', array('field_name', 'data'))
-  ->condition('fc.type', 'entityreference', '=')
-  ->condition('fc.active', 1, '=');
-
-  $results = array();
-
-  foreach ($query->execute()->fetchAll() as $result) {
-    $data = unserialize($result->data);
-    if ($data['widget']['type'] == 'entityreference_view_widget') {
-      $results[] = $result->field_name;
-    }
-  }
-
-  return $results;
 }
