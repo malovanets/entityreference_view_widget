@@ -7,4 +7,3 @@ dependencies[] = views
 
 files[] = views/entityreference_view_widget_handler_field_checkbox.inc
 files[] = views/entityreference_view_widget_plugin_display.inc
-files[] = views/entityreference_view_widget_plugin_exposed_form.inc
