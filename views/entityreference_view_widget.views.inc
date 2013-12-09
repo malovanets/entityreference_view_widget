@@ -32,16 +32,6 @@ function entityreference_view_widget_views_plugins() {
         'entityreference view display' => TRUE,
       ),
     ),
-    'exposed_form' => array(
-      'entityreference_view_widget' => array(
-        'title' => t('Entity Reference View Widget'),
-        'help' => t('Makes an exposed form work as a part of the Entityreference widget.'),
-        'handler' => 'entityreference_view_widget_plugin_exposed_form',
-        'uses options' => TRUE,
-        // Make this plugin only available to tables that map to an entity type.
-        'base' => $entity_tables,
-      ),
-    ),
   );
   return $plugins;
 }

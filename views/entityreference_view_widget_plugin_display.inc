@@ -9,12 +9,8 @@ class entityreference_view_widget_plugin_display extends views_plugin_display {
     $options = parent::option_definition();
 
     $options['style_plugin']['default'] = 'entityreference_view_widget';
-    //$options['style_options']['default']['columns'] = '3';
     $options['defaults']['default']['style_plugin'] = 'table';
     $options['defaults']['default']['style_options'] = FALSE;
-
-    $options['exposed_form']['contains']['type']['default'] = 'entityreference_view_widget';
-    $options['defaults']['default']['exposed_form'] = FALSE;
 
     $options['row_plugin']['default'] = 'entity';
     $options['row_options']['default']['view_mode'] = 'entityreference_view_widget';
