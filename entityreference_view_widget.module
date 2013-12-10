@@ -86,7 +86,7 @@ function entityreference_view_widget_field_widget_info() {
     'field types' => array('entityreference'),
     'behaviors' => array(
       'multiple values' => FIELD_BEHAVIOR_CUSTOM,
-      'default value' => FIELD_BEHAVIOR_DEFAULT,
+      'default value' => FIELD_BEHAVIOR_NONE,
     ),
   );
 
@@ -335,6 +335,7 @@ function entityreference_view_widget_row($delta, $field_name, $target_type, $lan
 
 /**
  * Generate weight select list values depending on the amount of field values.
+ *
  * @param int $max_delta
  * @return array
  */

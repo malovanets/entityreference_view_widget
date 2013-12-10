@@ -1,6 +1,20 @@
 (function($) {
 Drupal.behaviors.entityreferenceViewWidget = {
   attach: function(context, settings) {
+    /*$('#modal-content .pager a').click(function(){
+      var href = $(this).attr('href');
+      $.ajax({
+        url: href,
+        dataType: 'json',
+        success: function(data) { console.log(data);
+          $('#modal-content').html(data[1]['output']);
+          Drupal.attachBehaviors(this);
+        }
+      });
+      return false;
+    });
+    */
+    
     $('#entityreference-view-widget-modal-submit .button').click(function(){
       var button = $(this);
       var field_name = $('#entityreference-view-widget-field-name').val();
@@ -15,11 +29,11 @@ Drupal.behaviors.entityreferenceViewWidget = {
       });
 
       $.ajax({
-        'url': '/?q=entityreference_view_widget/ajax',
-        'type': 'POST',
-        'dataType': 'html',
-        'data': query_string,
-        'success': function(data) {
+        url: '/?q=entityreference_view_widget/ajax',
+        type: 'POST',
+        dataType: 'html',
+        data: query_string,
+        success: function(data) {
           data && $('#' + widget_settings.table_id + ' tbody').html(data);          
           $('#' + widget_settings.table_id + ' tbody tr').each(function(){
             var el = $(this);
