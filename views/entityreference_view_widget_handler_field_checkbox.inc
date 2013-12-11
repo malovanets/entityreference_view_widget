@@ -1,4 +1,8 @@
 <?php
+
+/**
+ * Provides the checkbox field to tick the view rows and set them as field values.
+ */
 class entityreference_view_widget_handler_field_checkbox extends views_handler_field {
   var $revision = FALSE;
 

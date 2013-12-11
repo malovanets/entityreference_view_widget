@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Entityreference view widget module.
+ */
+
+/**
  * Implements hook_entity_info_alter().
  */
 function entityreference_view_widget_entity_info_alter(&$info) {
@@ -16,7 +21,7 @@ function entityreference_view_widget_entity_info_alter(&$info) {
  * Implements hook_views_data_alter().
  */
 function entityreference_view_widget_views_data_alter(&$data) {
-  foreach (entity_get_info() as $entity_type => $info) {
+  foreach (entity_get_info() as $info) {
     if (isset($info['base table']) && isset($data[$info['base table']]['table'])) {
       $data[$info['base table']]['entityreference_view_widget'] = array(
         'title' => $data[$info['base table']]['table']['group'],
@@ -37,7 +42,7 @@ function entityreference_view_widget_views_data_alter(&$data) {
  */
 function entityreference_view_widget_menu() {
   $items['entityreference_view_widget/%ctools_js/modal/%/%/%'] = array(
-    'title' => t('Entity reference view widget modal'),
+    'title' => 'Entity reference view widget modal',
     'page callback' => 'entityreference_view_widget_modal',
     'page arguments' => array(1,3,4,5),
     'access callback' => TRUE,
@@ -107,7 +112,6 @@ function entityreference_view_widget_field_widget_settings_form($field, $instanc
 
   $target_type = $field['settings']['target_type'];
   $info = entity_get_info($target_type);
-  $target_base_table = $info['base table'];
 
   if ($widget['type'] == 'entityreference_view_widget') {
     // Get a list of all views that contain a "Entityreference View Widget" display.
@@ -147,7 +151,6 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   ctools_include('plugins');
 
   $frontend_id = str_replace('_', '-', $field['field_name']);
-  $checkbox_id = 'edit-' . $frontend_id . '-' . $langcode . '-' . $delta . '-target-id';
   $target_view = explode('|', $instance['widget']['settings']['view']);
 
   $form['#after_build'][] = 'entityreference_view_widget_add_resources';
@@ -163,7 +166,7 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
     '#default_value' => json_encode($settings),
     '#weight' => 100,
     '#attributes' => array(
-  	  'id' => 'entityreference-view-widget-' . $frontend_id . '-settings',
+      'id' => 'entityreference-view-widget-' . $frontend_id . '-settings',
     ),
   );
 
@@ -171,6 +174,8 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
     '#markup' => ctools_modal_text_button(t('Add items'), 'entityreference_view_widget/nojs/modal/' . $target_view[0] . '/' . $target_view[1] . '/' . $field['field_name'], '', 'button field-add-more-submit'),
     '#element_validate' => array('entityreference_view_widget_validate'),
     '#name' => $field['field_name'],
+    '#field_label' => $instance['label'],
+    '#required' => $instance['required'],
     '#attached' => array(
       'css' => array(drupal_get_path('module', 'entityreference_view_widget') . '/entityreference_view_widget.css'),
     ),
@@ -209,9 +214,14 @@ function entityreference_view_widget_validate($element, &$form_state, $form) {
     foreach ($form_state['input'][$field_name][$langcode] as $delta => $value) {
       if (!empty($value['target_id'])) {
         $form[$field_name][$langcode][$delta] = entityreference_view_widget_row($delta, $field_name, $form_state['field'][$field_name][$langcode]['field']['settings']['target_type'], $langcode, $value['target_id'], count($form_state['input'][$field_name][$langcode]));
+        $valid = 1;
       }
     }
     $form_state['values'][$field_name] = $form_state['input'][$field_name];
+  }
+
+  if ($element['#required'] && empty($valid)) {
+    form_set_error($field_name, t('@f field is required!', array('@f' => $element['#field_label'])));
   }
 }
 
@@ -232,19 +242,21 @@ function entityreference_view_widget_modal($mode, $name, $display, $field_name) 
   ctools_include('ajax');
 
   $view = views_get_view($name);
+  $view->use_ajax = TRUE;
+  $view->display['default']->display_options['use_ajax'] = TRUE;
 
   $html = $view->preview();
 
   $submit = array(
-  	'#type' => 'container',
+    '#type' => 'container',
     '#attributes' => array(
-  	  'id' => 'entityreference-view-widget-modal-submit',
+      'id' => 'entityreference-view-widget-modal-submit',
     ),
     'button_add' => array(
       '#type' => 'button',
       '#value' => t('Add selected items'),
       '#attributes' => array(
-    	'class' => array('button'),
+        'class' => array('button'),
       ),
     ),
     'button_add_close' => array(
@@ -337,6 +349,7 @@ function entityreference_view_widget_row($delta, $field_name, $target_type, $lan
  * Generate weight select list values depending on the amount of field values.
  *
  * @param int $max_delta
+ *
  * @return array
  */
 function entityreference_view_widget_weights($max_delta) {
@@ -396,8 +409,8 @@ function theme_entityreference_view_widget_widget($variables) {
     $delta_element = drupal_render($item['_weight']);
     $cells = array(
       array('data' => '', 'class' => array('field-multiple-drag')),
-        drupal_render($item),
-        array('data' => $delta_element, 'class' => array('delta-order')),
+      drupal_render($item),
+      array('data' => $delta_element, 'class' => array('delta-order')),
     );
     $rows[] = array(
       'data' => $cells,
@@ -413,7 +426,14 @@ function theme_entityreference_view_widget_widget($variables) {
   }
 
   $output = '<div class="form-item">';
-  $output .= theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => $table_id, 'class' => array('field-multiple-table'))));
+  $output .= theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array(
+      'id' => $table_id,
+      'class' => array('field-multiple-table')
+    ),
+  ));
   $output .= $widget['#description'] ? '<div class="description">' . $widget['#description'] . '</div>' : '';
   $output .= '<div class="clearfix">' . drupal_render($add_more_button) . '</div>';
   $output .= '</div>';

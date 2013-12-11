@@ -1,20 +1,6 @@
 (function($) {
 Drupal.behaviors.entityreferenceViewWidget = {
   attach: function(context, settings) {
-    /*$('#modal-content .pager a').click(function(){
-      var href = $(this).attr('href');
-      $.ajax({
-        url: href,
-        dataType: 'json',
-        success: function(data) { console.log(data);
-          $('#modal-content').html(data[1]['output']);
-          Drupal.attachBehaviors(this);
-        }
-      });
-      return false;
-    });
-    */
-    
     $('#entityreference-view-widget-modal-submit .button').click(function(){
       var button = $(this);
       var field_name = $('#entityreference-view-widget-field-name').val();
@@ -23,7 +9,7 @@ Drupal.behaviors.entityreferenceViewWidget = {
       var offset = $('#' + widget_settings.table_id + ' tbody tr').length;
       var entity_ids = $('input[name="entity_ids[]"]').serialize();
       var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type;
-      
+
       $('#' + widget_settings.table_id + ' input[type=checkbox]:checked').each(function(){
         query_string += '&default_entity_ids[' + $(this).data('delta') + ']=' + $(this).val();
       });
@@ -34,7 +20,7 @@ Drupal.behaviors.entityreferenceViewWidget = {
         dataType: 'html',
         data: query_string,
         success: function(data) {
-          data && $('#' + widget_settings.table_id + ' tbody').html(data);          
+          data && $('#' + widget_settings.table_id + ' tbody').html(data);
           $('#' + widget_settings.table_id + ' tbody tr').each(function(){
             var el = $(this);
             if (!el.find('.tabledrag-handle').length) {

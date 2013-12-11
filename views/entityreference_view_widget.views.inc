@@ -12,8 +12,6 @@ function entityreference_view_widget_views_plugins() {
     }
   }
 
-  $path = drupal_get_path('module', 'entityreference_view_widget');
-
   $plugins = array(
     'display' => array(
       'entityreference_view_widget' => array(
