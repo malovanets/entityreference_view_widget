@@ -1,13 +1,25 @@
 (function($) {
 Drupal.behaviors.entityreferenceViewWidget = {
   attach: function(context, settings) {
+    var checkboxes = '#modal-content input[name="entity_ids[]"]';
+    $('#entityreference_view_widget_select_all').unbind('click').text('Select all').data('unselect', 0).click(function(){
+      if ($(this).data('unselect')) {
+        $(checkboxes).removeAttr('checked');
+        $(this).data('unselect', 0).text('Select all');
+      }
+      else {
+        $(checkboxes).attr('checked', 'checked');
+        $(this).data('unselect', 1).text('Unselect all');
+      }
+      return false;
+    });
     $('#entityreference-view-widget-modal-submit .button').click(function(){
       var button = $(this);
       var field_name = $('#entityreference-view-widget-field-name').val();
       var field_frontend_name = field_name.replace(/\_/g, '-');
       var widget_settings = JSON.parse($('#entityreference-view-widget-' + field_frontend_name + '-settings').val());
       var offset = $('#' + widget_settings.table_id + ' tbody tr').length;
-      var entity_ids = $('input[name="entity_ids[]"]').serialize();
+      var entity_ids = $(checkboxes).serialize();
       var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type;
 
       $('#' + widget_settings.table_id + ' input[type=checkbox]:checked').each(function(){

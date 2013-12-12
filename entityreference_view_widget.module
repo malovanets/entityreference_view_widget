@@ -266,6 +266,9 @@ function entityreference_view_widget_modal($mode, $name, $display, $field_name) 
         'class' => array('button', 'modal-close'),
       ),
     ),
+    'select_all' => array(
+      '#markup' => l(t('Select all'), '', array('attributes' => array('id' => 'entityreference_view_widget_select_all'))),
+    ),
     'field_name' => array(
       '#type' => 'hidden',
       '#name' => 'field_name',
