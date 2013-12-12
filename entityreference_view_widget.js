@@ -23,7 +23,7 @@ Drupal.behaviors.entityreferenceViewWidget = {
       var widget_settings = JSON.parse($('#entityreference-view-widget-' + field_frontend_name + '-settings').val());
       var offset = $('#' + widget_settings.table_id + ' tbody tr').length;
       var entity_ids = $(checkboxes).serialize();
-      var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type;
+      var query_string = entity_ids + '&field_name=' + field_name + '&langcode=' + widget_settings.langcode + '&target_type=' + widget_settings.target_type + '&cardinality=' + widget_settings.cardinality;
 
       $('#' + widget_settings.table_id + ' input[type=checkbox]:checked').each(function(){
         query_string += '&default_entity_ids[' + $(this).data('delta') + ']=' + $(this).val();

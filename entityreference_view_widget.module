@@ -294,6 +294,7 @@ function entityreference_view_widget_ajax() {
   $entity_ids = array_unique($post['default_entity_ids']);
 
   $rows['#theme'] = 'entityreference_view_widget_rows';
+  $rows['#cardinality'] = $post['cardinality'];
 
   foreach ($entity_ids as $delta => $entity_id) {
     $rows[$delta] = entityreference_view_widget_row($delta, $post['field_name'], $post['target_type'], $post['langcode'], $entity_id, count($entity_ids));
@@ -383,11 +384,13 @@ function theme_entityreference_view_widget_widget($variables) {
       'colspan' => 2,
       'class' => array('field-label'),
     ),
-    array(
+  );
+  if ($widget['#cardinality'] !== '1') {
+    $header[] = array(
       'data' => t('Order'),
       'class' => array('tabledrag-hide'),
-    ),
-  );
+    );
+  }
   $rows = array();
 
   // Sort items according to '_weight' (needed when the form comes back after
@@ -410,8 +413,10 @@ function theme_entityreference_view_widget_widget($variables) {
     $cells = array(
       array('data' => '', 'class' => array('field-multiple-drag')),
       drupal_render($item),
-      array('data' => $delta_element, 'class' => array('delta-order')),
     );
+    if ($widget['#cardinality'] !== '1') {
+      $cells[] = array('data' => $delta_element, 'class' => array('delta-order'));
+    }
     $rows[] = array(
       'data' => $cells,
       'class' => array('draggable'),
@@ -438,7 +443,7 @@ function theme_entityreference_view_widget_widget($variables) {
   $output .= '<div class="clearfix">' . drupal_render($add_more_button) . '</div>';
   $output .= '</div>';
 
-  if ($widget['#cardinality'] !== 1) {
+  if ($widget['#cardinality'] !== '1') {
     drupal_add_tabledrag($table_id, 'order', 'sibling', $order_class);
   }
 
@@ -455,7 +460,9 @@ function theme_entityreference_view_widget_rows($variables) {
     $output[$row]  = '<tr class="draggable ' . current($zebra) . '">';
     $output[$row] .= '<td class="field-multiple-drag"></td>';
     $output[$row] .= '<td>' . render($variables['rows'][$row]['target_id']) . '</td>';
-    $output[$row] .= '<td class="delta-order tabledrag-hide">' . render($variables['rows'][$row]['_weight']) . '</td>';
+    if ($variables['rows']['#cardinality'] !== '1') {
+      $output[$row] .= '<td class="delta-order tabledrag-hide">' . render($variables['rows'][$row]['_weight']) . '</td>';
+    }
     $output[$row] .= '</tr>';
 
     $zebra = array_flip($zebra);
