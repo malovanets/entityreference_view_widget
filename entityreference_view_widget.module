@@ -102,11 +102,6 @@ function entityreference_view_widget_field_widget_info() {
  * Implements hook_field_widget_settings_form().
  */
 function entityreference_view_widget_field_widget_settings_form($field, $instance) {
-  // Only fields with unlimited cardinality are supported at the moment.
-  if ($field['cardinality'] != FIELD_CARDINALITY_UNLIMITED) {
-    drupal_set_message(t("The selected widget only supports fields with 'Number of values' set to 'Unlimited'. Otherwise it won't get displayed on the entity form."), 'warning');
-  }
-
   $widget = $instance['widget'];
   $settings = $widget['settings'];
 
@@ -159,6 +154,7 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
     'langcode' => $langcode,
     'table_id' => $frontend_id . '-values',
     'target_type' => $field['settings']['target_type'],
+    'cardinality' => $field['cardinality'],
   );
 
   $form[$field['field_name'] . '_settings'] = array(
@@ -182,6 +178,7 @@ function entityreference_view_widget_field_widget_form(&$form, &$form_state, $fi
   );
   $element['#theme'] = 'entityreference_view_widget_widget';
   $element['#field_name'] = $field['field_name'];
+  $element['#cardinality'] = $field['cardinality'];
 
   foreach ($items as $delta => $item) {
     $element[$delta] = entityreference_view_widget_row($delta, $field['field_name'], $field['settings']['target_type'], $langcode, $item['target_id'], count($items));
@@ -441,7 +438,9 @@ function theme_entityreference_view_widget_widget($variables) {
   $output .= '<div class="clearfix">' . drupal_render($add_more_button) . '</div>';
   $output .= '</div>';
 
-  drupal_add_tabledrag($table_id, 'order', 'sibling', $order_class);
+  if ($widget['#cardinality'] !== 1) {
+    drupal_add_tabledrag($table_id, 'order', 'sibling', $order_class);
+  }
 
   return $output;
 }
